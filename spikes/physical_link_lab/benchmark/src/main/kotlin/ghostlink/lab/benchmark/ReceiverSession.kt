@@ -42,6 +42,12 @@ class ReceiverSession(
     val records = ArrayList<RunRecord>()
     private var state: TrialState? = null
     private var sessionId: String? = null
+    /**
+     * Highest trial index already closed in this session. The TX keeps showing (and re-announcing) a
+     * trial for its whole duration because there is no back-channel, so a trial that completed and went
+     * idle must never be reopened as a second run with the same run_id.
+     */
+    private var lastClosedIndex = -1
     private var ended = false
     private val gridDecoders = HashMap<GridSpec, GridImageDecoder>()
     /** TX reports keyed by trial index, possibly arriving after the trial closed. */
@@ -100,6 +106,7 @@ class ReceiverSession(
             // A different session started: close everything from the old one.
             finishCurrent("NEW_SESSION")
             sessionId = null
+            lastClosedIndex = -1
         }
         return when (f.type) {
             FrameType.ANNOUNCE -> onAnnounce(f, now)
@@ -130,6 +137,7 @@ class ReceiverSession(
             return null
         }
         if (s != null && a.config.trialIndex < s.index) return null // stale re-announce
+        if (a.config.trialIndex <= lastClosedIndex) return null // re-announce of a trial already recorded
         finishCurrent(if (s?.complete == true) "COMPLETE" else "NEXT_ANNOUNCE")
         state = TrialState(a.config.trialIndex, now).also { it.adoptConfig(a.config); it.announceFrames = 1; it.firstAnnounceNs = now }
         patchReportedTrials()
@@ -140,6 +148,7 @@ class ReceiverSession(
         var s = state
         if (s == null || s.index != f.trial) {
             if (s != null && f.trial < s.index) { s.framesOther++; return null }
+            if (f.trial <= lastClosedIndex) return null // tail of a trial already recorded
             finishCurrent(if (s?.complete == true) "COMPLETE" else "NEXT_DATA")
             if (sessionId == null) return null // cannot verify payload without the session id (announce)
             s = TrialState(f.trial, now).also { it.announceMissed = true }
@@ -159,9 +168,10 @@ class ReceiverSession(
     fun finishCurrent(reason: String) {
         val s = state ?: return
         state = null
+        lastClosedIndex = maxOf(lastClosedIndex, s.index)
         val rec = s.toRecord(reason)
         records.add(rec)
-        store?.append(rec, s.raw(rec))
+        store?.append(rec, s.raw(rec, reason))
     }
 
     /** Fill sender-side numbers that arrived after a trial was closed (rows already written keep blanks). */
@@ -410,9 +420,9 @@ class ReceiverSession(
             return RunRecord(f)
         }
 
-        fun raw(rec: RunRecord): Map<String, Any?> = linkedMapOf(
+        fun raw(rec: RunRecord, closeReason: String): Map<String, Any?> = linkedMapOf(
             "record" to rec.fields,
-            "close_reason" to rec["failure_top"],
+            "close_reason" to closeReason,
             "trial_config" to config?.let { mapOf("visual" to it.visual.key(), "fps" to it.targetFps, "scheme" to it.scheme.name, "symbol_size" to it.symbolSize, "K" to it.sourceSymbols, "duration_ms" to it.durationMs) },
             "decode_ms" to decodeMs,
             "capture_to_analysis_ms" to captureMs,

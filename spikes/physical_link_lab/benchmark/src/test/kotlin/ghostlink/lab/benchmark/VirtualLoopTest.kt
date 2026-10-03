@@ -27,7 +27,7 @@ class VirtualLoopTest {
         return YuvFrame.fromArgb(w, h, Rasterizer.toScreen(vf, w, h))
     }
 
-    private fun run(plan: List<TrialSpec>, lossRate: Double = 0.0, seed: Int = 1): ReceiverSession {
+    private fun run(plan: List<TrialSpec>, lossRate: Double = 0.0, seed: Int = 1, blindAfterComplete: Boolean = false): ReceiverSession {
         var simNs = 0L
         val dir = Files.createTempDirectory("vl").toFile()
         val tx = TransmitterSession("M1_TEST_${seed}", plan, 2.2, TxInfo("SimTX", 1080, 2400, 6000))
@@ -46,12 +46,27 @@ class VirtualLoopTest {
                 st.lastDataShownMs = simNs / 1_000_000; st.dataSlotsShown++
             }
             if (rnd.nextDouble() < lossRate) continue
+            // Camera sees nothing but announces once the trial is complete (e.g. phone moved away).
+            if (blindAfterComplete && slot.kind == SlotKind.DATA && rx.currentTrial == slot.trialIndex && rx.currentTrialComplete) continue
             val frame = if (slot.cacheKey == lastKey && lastFrame != null) lastFrame else render(slot, 540, 1200).also { lastFrame = it; lastKey = slot.cacheKey }
             rx.process(frame, FrameTiming(simNs, 0, 0))
             if (rx.isEnded) break
         }
         assertTrue(dir.resolve("runs.csv").readLines().size == rx.records.size + 1)
         return rx
+    }
+
+    @Test
+    fun completedTrialIsNotReopenedByLaterReannounces() {
+        // Regression: the TX keeps re-announcing a trial for its whole duration; a receiver that completed
+        // it and went idle used to reopen it as a second run with the same run_id (spurious FAIL rows).
+        val plan = listOf(
+            TrialSpec(PhyChoice.Qr(10, QrEcc.M), 10, SchemeId.RAPTORQ, 1024, Stage.MANUAL, maxDurationMs = 20_000),
+            TrialSpec(PhyChoice.Grid(48, 1), 15, SchemeId.RAPTORQ, 2048, Stage.MANUAL, maxDurationMs = 20_000),
+        )
+        val rx = run(plan, blindAfterComplete = true)
+        assertEquals(listOf<Any?>(0, 1), rx.records.map { it["trial_index"] }, rx.records.joinToString { "${it["trial_index"]}:${it["RESULT"]}" })
+        assertTrue(rx.records.all { it["RESULT"] == "PASS" })
     }
 
     @Test
