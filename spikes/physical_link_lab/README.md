@@ -23,7 +23,7 @@ physical_link_lab/
 ├── generators/  (JVM only, AWT) camera simulator, display/camera timing model, invisible-channel model
 ├── labtools/    (JVM only) cloud experiment CLIs -> results/cloud/
 ├── android/     separate Gradle build: the single TX/RX/AUTO-BENCHMARK app (includes the JVM build)
-├── scripts/     analyze_m1.py (tables, M1 gate, plots)
+├── scripts/     analyze_m1.py (tables, M1 gate, plots), cloud_tables.py (results/cloud/CLOUD_TABLES.md)
 ├── datasets/    generated/ (git-ignored) simulated camera frames
 └── results/     cloud/ (committed, SIMULATED), physical/ (owner exports), analysis/ (generated)
 ```
@@ -36,7 +36,8 @@ PHY and reliability are separate layers (brief §29):
 ```bash
 cd spikes/physical_link_lab
 ./gradlew test                                   # unit, property (seeded) and fuzz tests
-./gradlew :labtools:run --args="all"             # cloud experiments (≈ 30–60 min); add --quick for a smoke run
+./gradlew :labtools:run --args="all"             # cloud experiments (≈ 60–75 min on 4 vCPU; the virtual loop is ~45 min); add --quick for a smoke run
+python3 scripts/cloud_tables.py                  # regenerate results/cloud/CLOUD_TABLES.md
 python3 scripts/analyze_m1.py [exports...]       # analysis + plots (pandas, matplotlib)
 ./gradlew -p android :app:assembleDebug          # APK (needs Android SDK + Google Maven access)
 ```
@@ -69,6 +70,8 @@ download).
 ## Known limitations of the spike
 
 - Fixed trial durations (no back-channel): the transmitter cannot stop early when the receiver is done.
+- Trial parameters travel in a QR v8-M announce, readable only to ~40–60 cm at 1080p / 1× (simulated):
+  long-range points need 4K analysis or 2× zoom.
 - Grid decoder assumes the whole code is in view and roughly planar (no lens-distortion model).
 - `ImageHolder` hands the current `ImageProxy` to zxing-cpp / ML Kit through a field (single analysis thread).
 - The camera simulator is a pre-screening model; every cloud number is labelled SIMULATED.
