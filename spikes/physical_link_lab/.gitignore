@@ -1,0 +1,10 @@
+.gradle/
+build/
+**/build/
+.kotlin/
+local.properties
+.idea/
+*.iml
+captures/
+datasets/generated/
+results/cloud/tmp/
