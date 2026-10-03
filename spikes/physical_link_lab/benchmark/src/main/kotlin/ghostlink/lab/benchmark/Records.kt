@@ -64,7 +64,7 @@ class RunRecord(val fields: LinkedHashMap<String, Any?>) {
             "qr_decoder", "exposure_mode", "analysis_resolution", "zoom",
             "frames_generated", "frames_seen", "frames_decoded", "frames_failed", "frames_other", "frames_dropped",
             "symbols_unique", "symbols_duplicate", "fountain_overhead",
-            "transfer_seconds", "latency_first_frame_ms",
+            "transfer_seconds", "latency_first_frame_ms", "partial_goodput_bytes_sec",
             "gross_bitrate", "net_bitrate", "goodput_bytes_sec",
             "decode_latency_ms", "decode_latency_p90_ms",
             "capture_to_analysis_ms", "copy_ms", "preprocess_ms", "detect_ms", "sample_ms", "ecc_ms", "fec_ms",

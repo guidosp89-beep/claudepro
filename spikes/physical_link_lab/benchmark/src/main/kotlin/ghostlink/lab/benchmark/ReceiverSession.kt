@@ -379,6 +379,10 @@ class ReceiverSession(
             f["fountain_overhead"] = if (complete && dec != null) dec.uniqueSymbols.toDouble() / dec.sourceSymbols - 1.0 else null
             f["transfer_seconds"] = if (complete) transferS else null
             f["latency_first_frame_ms"] = if (firstAnnounceNs > 0 && firstDataNs > 0) (firstDataNs - firstAnnounceNs) / 1e6 else null
+            // Lower bound for incomplete runs: distinct useful symbol bytes per second while data was flowing.
+            val flowNs = (if (complete) completeNs else lastDecodedNs) - firstDataNs
+            f["partial_goodput_bytes_sec"] = if (dec != null && firstDataNs > 0 && flowNs > 0)
+                minOf(dec.uniqueSymbols.toLong() * dec.symbolSize, payload.toLong()) / (flowNs / 1e9) else null
             f["gross_bitrate"] = if (complete && transferS > 0) bytesDecoded * 8 / transferS else null
             f["net_bitrate"] = if (complete && transferS > 0) payload * 8 / transferS else null
             f["goodput_bytes_sec"] = if (result == "PASS" && transferS > 0) payload / transferS else 0.0

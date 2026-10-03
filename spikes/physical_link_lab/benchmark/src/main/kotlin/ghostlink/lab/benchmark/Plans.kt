@@ -23,7 +23,7 @@ sealed interface PhyChoice {
     data class Grid(val cols: Int, val bitsPerCell: Int, val rsParity: Int = 32, val finderModule: Int = 1) : PhyChoice {
         override fun resolve(screenAspect: Double) =
             GridSpec(cols, GridSpec.rowsForAspect(cols, screenAspect), bitsPerCell, rsParity, finderModule)
-        override fun key() = "GRID-c$cols-b$bitsPerCell-p$rsParity"
+        override fun key() = "GRID-c$cols-b$bitsPerCell-p$rsParity" + if (finderModule != 1) "-f$finderModule" else ""
     }
 }
 
@@ -55,32 +55,40 @@ object Plans {
     fun durationFor(payloadBytes: Int, floorBytesPerSec: Int = 3_000, minMs: Int = 10_000, maxMs: Int = 90_000): Int =
         ((payloadBytes.toLong() * 1000 / floorBytesPerSec).toInt()).coerceIn(minMs, maxMs)
 
-    /** Stage 1: ~19 trials covering QR version/ECC/fps, fountain vs sequential, and grid candidates. */
+    /**
+     * Stage 1 (22 trials, ~10 min at one placement). Centred on the cloud pre-screening (camera simulator:
+     * at 40 cm / 1080p only QR ≤ v10 and grids ≤ 64 columns decode) but deliberately spanning past that
+     * boundary (QR v15–v25, grid 96) so the physical run can prove the simulator wrong in either direction.
+     * Covers: QR version, ECC L/M/Q/H, FPS 10/15/20/30, sequential vs LT vs RaptorQ, grid size and bits/cell.
+     */
     fun coarse(): List<TrialSpec> {
         val p = COARSE_PAYLOAD
-        val d = durationFor(p, minMs = 12_000, maxMs = 25_000)
-        fun t(phy: PhyChoice, fps: Int, scheme: SchemeId = SchemeId.RAPTORQ) = TrialSpec(phy, fps, scheme, p, Stage.COARSE, maxDurationMs = d)
+        val d = 25_000
+        fun t(phy: PhyChoice, fps: Int = 15, scheme: SchemeId = SchemeId.RAPTORQ) = TrialSpec(phy, fps, scheme, p, Stage.COARSE, maxDurationMs = d)
         val qr = { v: Int, e: QrEcc -> PhyChoice.Qr(v, e) }
         return listOf(
+            t(qr(6, QrEcc.M)),
+            t(qr(10, QrEcc.L)),
+            t(qr(10, QrEcc.M)),
+            t(qr(10, QrEcc.Q)),
+            t(qr(10, QrEcc.H)),
+            t(qr(15, QrEcc.L)),
+            t(qr(20, QrEcc.L)),
+            t(qr(25, QrEcc.L)),
             t(qr(10, QrEcc.M), 10),
-            t(qr(15, QrEcc.L), 15),
-            t(qr(20, QrEcc.L), 15),
-            t(qr(25, QrEcc.L), 15),
-            t(qr(20, QrEcc.M), 15),
-            t(qr(20, QrEcc.Q), 15),
-            t(qr(20, QrEcc.H), 15),
-            t(qr(20, QrEcc.L), 10),
-            t(qr(20, QrEcc.L), 20),
-            t(qr(20, QrEcc.L), 30),
-            t(qr(20, QrEcc.L), 15, SchemeId.SEQUENTIAL),
-            t(qr(20, QrEcc.L), 15, SchemeId.LT),
-            t(PhyChoice.Grid(48, 1), 15),
-            t(PhyChoice.Grid(64, 1), 15),
-            t(PhyChoice.Grid(96, 1), 15),
-            t(PhyChoice.Grid(48, 2), 15),
-            t(PhyChoice.Grid(64, 2), 15),
-            t(PhyChoice.Grid(48, 3, 48), 15),
-            t(PhyChoice.Grid(64, 1, 32, 2), 15),
+            t(qr(10, QrEcc.M), 20),
+            t(qr(10, QrEcc.M), 30),
+            t(qr(10, QrEcc.M), scheme = SchemeId.SEQUENTIAL),
+            t(qr(10, QrEcc.M), scheme = SchemeId.LT),
+            t(PhyChoice.Grid(40, 1)),
+            t(PhyChoice.Grid(48, 1)),
+            t(PhyChoice.Grid(64, 1)),
+            t(PhyChoice.Grid(96, 1)),
+            t(PhyChoice.Grid(48, 2)),
+            t(PhyChoice.Grid(64, 2)),
+            t(PhyChoice.Grid(48, 3, 48)),
+            t(PhyChoice.Grid(64, 1, 32, 2)),
+            t(PhyChoice.Grid(48, 1), 20),
         )
     }
 
@@ -136,7 +144,7 @@ object Plans {
     )
 
     /** Same QR frames decoded by all three QR decoders on the receiver (decoder comparison mode). */
-    fun decoderCompare(): List<TrialSpec> = listOf(10 to QrEcc.M, 20 to QrEcc.L, 25 to QrEcc.L).map { (v, e) ->
+    fun decoderCompare(): List<TrialSpec> = listOf(6 to QrEcc.M, 10 to QrEcc.M, 15 to QrEcc.L, 20 to QrEcc.L).map { (v, e) ->
         TrialSpec(PhyChoice.Qr(v, e), 10, SchemeId.RAPTORQ, 32 * 1024, Stage.DECODER_COMPARE, maxDurationMs = 20_000)
     }
 
@@ -152,8 +160,8 @@ object Plans {
 
     /** Built-in defaults when no ranking is available yet (e.g. robustness run before coarse). */
     fun defaultTop(): List<TrialSpec> = listOf(
-        TrialSpec(PhyChoice.Qr(20, QrEcc.L), 15, SchemeId.RAPTORQ, FINE_PAYLOAD, Stage.FINE),
-        TrialSpec(PhyChoice.Grid(64, 1), 15, SchemeId.RAPTORQ, FINE_PAYLOAD, Stage.FINE),
+        TrialSpec(PhyChoice.Grid(48, 1), 15, SchemeId.RAPTORQ, FINE_PAYLOAD, Stage.FINE),
+        TrialSpec(PhyChoice.Qr(10, QrEcc.M), 15, SchemeId.RAPTORQ, FINE_PAYLOAD, Stage.FINE),
     )
 
     // ---- compact binary encoding of "top configs" for the PLAN QR (receiver -> transmitter) ----

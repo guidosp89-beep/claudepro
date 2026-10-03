@@ -6,7 +6,7 @@ import java.io.File
  * Cloud experiment runner (JVM). Usage (from spikes/physical_link_lab):
  *   ./gradlew :labtools:run --args="all"           # every experiment, writes results/cloud/
  *   ./gradlew :labtools:run --args="fountain loss" # selected experiments
- * Experiments: fountain, loss, timing, camsim, veil, virtual, datasets.
+ * Experiments: fountain, loss, timing, camsim, veil, virtual, pipeline, datasets.
  * Every output is SIMULATED / CLOUD-AUTOMATED evidence, never a physical measurement.
  */
 fun main(args: Array<String>) {
@@ -20,6 +20,7 @@ fun main(args: Array<String>) {
         "veil" to VeilSweep::run,
         "camsim" to CamSimSweep::run,
         "virtual" to VirtualLoopRun::run,
+        "pipeline" to PipelineBench::run,
         "datasets" to Datasets::run,
     )
     val selected = if ("all" in names) all.keys.toList() else names

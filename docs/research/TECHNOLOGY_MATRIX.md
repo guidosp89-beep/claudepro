@@ -56,3 +56,13 @@ Fonti e dettagli nei documenti 02–07.
 | Emergenza/beacon notturno | Schermo/torcia beacon | LoRa |
 | Key exchange | QR reciproco | Audio, codice umano |
 | Dead drop | QR stampato / microSD | WAV, video |
+
+## Aggiornamento M1 (2026-10-03) — non sostituisce le stime sopra
+
+Le righe "visual" sono state riesaminate nel Physical Link Lab (`spikes/physical_link_lab`). Evidenza
+**solo cloud/simulata** finché il test fisico non è eseguito: vedi `docs/experiments/M1_FINAL_REPORT.md`,
+`docs/experiments/M1_VISUAL_TECH_BAKEOFF.md` e `docs/decisions/ADR_M1_VISUAL_PHY_SELECTION.md`.
+Punti che cambiano la lettura della matrice: (1) a 1080p/1× la geometria limita il QR a ~v10 a 40 cm,
+quindi i 5–30 KB/s del "QR Dynamic" valgono solo a ≤ 20–30 cm; (2) la griglia rettangolare a tutto
+schermo è il candidato per ≥ 50 cm; (3) RaptorQ raggiunge l'efficienza ideale, LT no; (4) oltre
+`fps_camera/2` simboli al secondo non si guadagna nulla.

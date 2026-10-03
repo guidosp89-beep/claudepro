@@ -262,3 +262,45 @@ object Datasets {
         println("  wrote ${dir.listFiles()?.size} PNGs to ${dir.path}")
     }
 }
+
+/**
+ * Camera-pipeline stage timing on the JVM (brief §40): binarize/preprocess, detect, sample/classify,
+ * error correction, plus erasure-decoder time per symbol. Desktop JVM numbers: phones are expected
+ * to be several times slower; the Android receiver records the same stages on device.
+ */
+object PipelineBench {
+    fun run(out: File, quick: Boolean) {
+        val n = if (quick) 5 else 25
+        val picks = simConfigs().filter { it.first in setOf("QR-v10-M", "QR-v20-L", "GRID-48x108-b1-p32", "GRID-48x108-b2-p32", "GRID-64x144-b1-p32", "GRID-48x108-b3-p48") }
+        Csv(File(out, "pipeline_bench.csv"), listOf("config", "analysis_res", "frames", "ok_frames", "preprocess_ms", "detect_ms", "sample_ms", "ecc_ms", "total_ms_p50", "total_ms_p90", "fec_add_ms_per_symbol")).use { csv ->
+            for ((key, spec) in picks) for (cam in listOf(CameraModel(), CameraModel(width = 1280, height = 720))) {
+                val sim = CameraSimulator(SCREEN, cam)
+                val rnd = Random(9)
+                val bytes = LabFrame(FrameType.DATA, 1, 1, SchemeId.RAPTORQ, 0, 1, rnd.nextBytes(spec.frameCapacity() - LabFrame.OVERHEAD_BYTES)).encode()
+                val screen = Rasterizer.toScreen(renderFrame(spec, bytes), SCREEN.widthPx, SCREEN.heightPx)
+                val dec = decoderFor(spec)
+                val frames = (0 until 4).map { sim.capture(screen, Scene(distanceCm = 25.0, seed = it.toLong())) }
+                repeat(5) { dec.decode(frames[it % frames.size]) } // warm-up
+                val pre = ArrayList<Double>(); val det = ArrayList<Double>(); val sam = ArrayList<Double>(); val ecc = ArrayList<Double>(); val tot = ArrayList<Double>()
+                var ok = 0
+                for (i in 0 until n) {
+                    val a = dec.decode(frames[i % frames.size])
+                    if (a.ok) ok++
+                    pre.add(a.preprocessNs / 1e6); det.add(a.detectNs / 1e6); sam.add(a.sampleNs / 1e6); ecc.add(a.eccNs / 1e6); tot.add(a.totalNs / 1e6)
+                }
+                // Erasure layer cost per received symbol (RaptorQ, 256 KB object, this PHY's symbol size).
+                val t = spec.frameCapacity() - LabFrame.OVERHEAD_BYTES
+                val payload = ghostlink.lab.codecs.DeterministicPayload.generate(3, 262_144)
+                val enc = ghostlink.lab.codecs.erasure.Erasure.encoder(SchemeId.RAPTORQ, payload, t)
+                val ed = ghostlink.lab.codecs.erasure.Erasure.decoder(SchemeId.RAPTORQ, payload.size, t)
+                val syms = (0 until enc.sourceSymbols + 5).map { (it * 3).toLong() to enc.symbol((it * 3).toLong()) }
+                val t0 = System.nanoTime()
+                var used = 0
+                for ((id, s) in syms) { ed.add(id, s); used++; if (ed.isComplete) break }
+                val fecMs = (System.nanoTime() - t0) / 1e6 / used
+                csv.row(key, "${cam.width}x${cam.height}", n, ok, pre.average(), det.average(), sam.average(), ecc.average(), pct(tot, 50.0), pct(tot, 90.0), fecMs)
+                println("  pipeline $key ${cam.width}x${cam.height}: total p50=%.1f ms ok=$ok/$n".format(pct(tot, 50.0)))
+            }
+        }
+    }
+}

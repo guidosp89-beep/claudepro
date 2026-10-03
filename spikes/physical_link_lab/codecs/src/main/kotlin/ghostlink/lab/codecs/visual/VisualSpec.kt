@@ -74,7 +74,7 @@ data class GridSpec(
     }
 
     override fun frameCapacity(): Int = GridLayout.of(this).frameCapacity
-    override fun key(): String = "GRID-${cols}x$rows-b$bitsPerCell-p$rsParity"
+    override fun key(): String = "GRID-${cols}x$rows-b$bitsPerCell-p$rsParity" + if (finderModule != 1) "-f$finderModule" else ""
     override fun encode(): ByteArray = ByteWriter(8).u8(VisualSpec.KIND_GRID).u16(cols).u16(rows).u8(bitsPerCell)
         .u8(rsParity).u8(finderModule).toByteArray()
 
