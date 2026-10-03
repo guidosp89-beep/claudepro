@@ -153,9 +153,13 @@ object Plans {
         base.copy(payloadBytes = size, stage = Stage.CONFIRM, scheme = SchemeId.RAPTORQ, maxDurationMs = durationFor(size, minMs = 8_000, maxMs = 240_000))
     }
 
-    /** QR v10-M: the most robust data PHY in the simulator at 40 cm (v20 needs ~20 cm at 1080p). */
+    /**
+     * GhostPacket v0 over the visual channel: QR v10-M (universal decoders, short range; v20 needs ~20 cm
+     * at 1080p) and the GLG-B1 48-column grid (the simulator's candidate for >= 50 cm).
+     */
     fun ghostPacketProof(): List<TrialSpec> = listOf(
         TrialSpec(PhyChoice.Qr(10, QrEcc.M), 10, SchemeId.RAPTORQ, 8 * 1024, Stage.GHOSTPACKET, maxDurationMs = 30_000, ghostPacket = true),
+        TrialSpec(PhyChoice.Grid(48, 1), 15, SchemeId.RAPTORQ, 64 * 1024, Stage.GHOSTPACKET, maxDurationMs = 45_000, ghostPacket = true),
     )
 
     /** Built-in defaults when no ranking is available yet (e.g. robustness run before coarse). */

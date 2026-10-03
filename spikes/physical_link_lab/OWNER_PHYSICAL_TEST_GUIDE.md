@@ -39,7 +39,7 @@ fotocamera posteriore).
 - Entrambi in **verticale (portrait)**; B inquadra A al **centro** dell'anteprima.
 - Evitare riflessi di lampade/finestre sullo schermo di A.
 
-## 3. AUTO BENCHMARK — Stage 1 (≈ 10 minuti, automatico)
+## 3. AUTO BENCHMARK — Stage 1 (≈ 11 minuti, automatico)
 
 **Su B (ricevitore):**
 1. Aprire l'app → impostare *Distance cm* = **40**, *Angle* = **0**, *Light* = la classe che descrive la
@@ -51,7 +51,7 @@ fotocamera posteriore).
 4. Aprire l'app → *Transmitter plan* = **AUTO 1: coarse sweep + GhostPacket proof** → **TRANSMITTER**.
 5. Toccare il riquadro per **avviare**. Lo schermo diventa una sequenza di codici.
 
-**Non toccare nulla** finché B non mostra **SESSION COMPLETE** (circa 10 minuti).
+**Non toccare nulla** finché B non mostra **SESSION COMPLETE** (circa 11 minuti).
 Se B mostra un **QR "PLAN"** sotto l'anteprima, lasciarlo visibile per il passo 4.
 
 ## 4. AUTO BENCHMARK — Stage 2→3 (opzionale ma consigliato, ≈ 40 minuti)

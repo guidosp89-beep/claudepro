@@ -174,15 +174,23 @@ object VeilSweep {
 object VirtualLoopRun {
     fun run(out: File, quick: Boolean) {
         val payload = if (quick) 16 * 1024 else 64 * 1024
+        // Same trial machinery as the APK. Covers: QR baseline, a large-QR negative control, the three
+        // reliability schemes on the leading grid, grid density/colour variants, a 256 KB trial shaped
+        // like the M1 gate, and the GhostPacket v0 proof over QR and over the grid.
         val plan = listOf(
-            TrialSpec(PhyChoice.Qr(10, QrEcc.M), 10, SchemeId.RAPTORQ, payload / 4, Stage.COARSE, maxDurationMs = 15_000),
+            TrialSpec(PhyChoice.Qr(10, QrEcc.M), 10, SchemeId.RAPTORQ, payload / 4, Stage.COARSE, maxDurationMs = 20_000),
             TrialSpec(PhyChoice.Qr(20, QrEcc.L), 15, SchemeId.RAPTORQ, payload, Stage.COARSE, maxDurationMs = 20_000),
-            TrialSpec(PhyChoice.Qr(20, QrEcc.L), 15, SchemeId.SEQUENTIAL, payload, Stage.COARSE, maxDurationMs = 20_000),
-            TrialSpec(PhyChoice.Qr(20, QrEcc.L), 15, SchemeId.LT, payload, Stage.COARSE, maxDurationMs = 20_000),
-            TrialSpec(PhyChoice.Grid(64, 1), 15, SchemeId.RAPTORQ, payload, Stage.COARSE, maxDurationMs = 20_000),
-            TrialSpec(PhyChoice.Grid(48, 2), 15, SchemeId.RAPTORQ, payload, Stage.COARSE, maxDurationMs = 20_000),
+            TrialSpec(PhyChoice.Grid(48, 1), 15, SchemeId.SEQUENTIAL, payload, Stage.COARSE, maxDurationMs = 30_000),
+            TrialSpec(PhyChoice.Grid(48, 1), 15, SchemeId.LT, payload, Stage.COARSE, maxDurationMs = 30_000),
+            TrialSpec(PhyChoice.Grid(48, 1), 15, SchemeId.RAPTORQ, payload, Stage.COARSE, maxDurationMs = 30_000),
+            TrialSpec(PhyChoice.Grid(40, 1), 15, SchemeId.RAPTORQ, payload, Stage.COARSE, maxDurationMs = 30_000),
+            TrialSpec(PhyChoice.Grid(64, 1), 15, SchemeId.RAPTORQ, payload, Stage.COARSE, maxDurationMs = 30_000),
+            TrialSpec(PhyChoice.Grid(40, 2), 15, SchemeId.RAPTORQ, payload, Stage.COARSE, maxDurationMs = 30_000),
+            TrialSpec(PhyChoice.Grid(48, 2), 15, SchemeId.RAPTORQ, payload, Stage.COARSE, maxDurationMs = 30_000),
             TrialSpec(PhyChoice.Grid(96, 1), 15, SchemeId.RAPTORQ, payload, Stage.COARSE, maxDurationMs = 20_000),
+            TrialSpec(PhyChoice.Grid(48, 1), 15, SchemeId.RAPTORQ, 256 * 1024, Stage.CONFIRM, maxDurationMs = 90_000),
             TrialSpec(PhyChoice.Qr(10, QrEcc.M), 10, SchemeId.RAPTORQ, 8 * 1024, Stage.GHOSTPACKET, maxDurationMs = 20_000, ghostPacket = true),
+            TrialSpec(PhyChoice.Grid(48, 1), 15, SchemeId.RAPTORQ, payload, Stage.GHOSTPACKET, maxDurationMs = 30_000, ghostPacket = true),
         )
         val conditions = if (quick) listOf(40.0) else listOf(40.0, 60.0, 100.0)
         val pool = Executors.newFixedThreadPool(conditions.size)
@@ -202,6 +210,7 @@ object VirtualLoopRun {
         )
         val rnd = Random(distanceCm.toLong())
         val cache = HashMap<Int, IntArray>()
+        val joinedAtSlot = HashMap<Int, Long>()
         fun screenOf(s: TxSlot): IntArray = cache.getOrPut(s.cacheKey) {
             if (cache.size > 64) cache.clear()
             Rasterizer.toScreen(renderFrame(s.spec, s.frameBytes), SCREEN.widthPx, SCREEN.heightPx)
@@ -219,10 +228,17 @@ object VirtualLoopRun {
                 if (st.firstDataShownMs == 0L) st.firstDataShownMs = slotStartNs / 1_000_000
                 st.lastDataShownMs = slotStartNs / 1_000_000; st.dataSlotsShown++
             }
-            // Skip camera work once the receiver finished this trial, or if after 4 s of data it decoded
-            // nothing at all (hopeless config): keeps the simulation tractable. Documented in the report.
-            val hopeless = cur.kind == SlotKind.DATA && st.dataSlotsShown > 4L * cur.fps && rx.currentTrial == cur.trialIndex && rx.currentDecodedFrames == 0L
-            val skip = (cur.kind == SlotKind.DATA && rx.currentTrial == cur.trialIndex && rx.currentTrialComplete) || hopeless
+            // Skip camera work on DATA slots (announce slots are always simulated) once the receiver
+            // finished this trial, if it joined the trial but decoded nothing for 4 s, or if it has not
+            // joined the trial after 4 s of data (announce unreadable: grid data cannot be decoded
+            // without it). Keeps the simulation tractable; documented in the report.
+            val inTrial = rx.currentTrial == cur.trialIndex
+            if (inTrial) joinedAtSlot.putIfAbsent(cur.trialIndex, st.dataSlotsShown)
+            val sinceJoin = st.dataSlotsShown - (joinedAtSlot[cur.trialIndex] ?: st.dataSlotsShown)
+            val hopeless = cur.kind == SlotKind.DATA && (
+                (inTrial && sinceJoin > 4L * cur.fps && rx.currentDecodedFrames == 0L) ||
+                    (!inTrial && st.dataSlotsShown > 4L * cur.fps))
+            val skip = (cur.kind == SlotKind.DATA && inTrial && rx.currentTrialComplete) || hopeless
             while (nextCameraNs < slotStartNs + slotNs) {
                 if (!skip) {
                     simNs = nextCameraNs
@@ -250,7 +266,11 @@ object Datasets {
         val dir = File("datasets/generated").also { it.mkdirs() }
         val rnd = Random(5)
         val sim = CameraSimulator(SCREEN, CameraModel())
-        val picks = simConfigs().filter { it.first in setOf("QR-v20-L", "GRID-64x140-b1-p32", "GRID-48x104-b2-p32", "GRID-48x104-b3-p48") }
+        // Select by structure, not by key string: grid rows depend on the screen aspect.
+        val picks = simConfigs().filter { (_, s) ->
+            (s is QrSpec && s.version in setOf(10, 20) && s.ecc == if (s.version == 10) QrEcc.M else QrEcc.L) ||
+                (s is GridSpec && s.finderModule == 1 && ((s.cols == 64 && s.bitsPerCell == 1) || (s.cols == 48 && s.bitsPerCell in 2..3)))
+        }
         for ((key, spec) in picks) for ((name, scene) in listOf(
             "d40" to Scene(distanceCm = 40.0), "d100" to Scene(distanceCm = 100.0), "a30" to Scene(distanceCm = 40.0, angleDeg = 30.0),
             "dim" to Scene(distanceCm = 40.0, ambient = AmbientClass.INDOOR_DIM), "motion6" to Scene(distanceCm = 40.0, motionBlurPx = 6.0),
