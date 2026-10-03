@@ -51,6 +51,9 @@ class ReceiverSession(
         private set
     val isEnded: Boolean get() = ended
     val currentTrial: Int? get() = state?.index
+    /** Valid data frames decoded so far for the current trial (0 if none). */
+    val currentDecodedFrames: Long get() = state?.framesDecoded ?: 0L
+    val currentTrialComplete: Boolean get() = state?.complete == true
     val currentSessionId: String? get() = sessionId
 
     /** Summary line for on-screen status. */

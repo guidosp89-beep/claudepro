@@ -55,6 +55,11 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       - name: Build debug APK
         run: ./gradlew :app:assembleDebug --no-daemon --stacktrace
+      - name: Verify offline manifest (no network permissions)
+        run: |
+          m=$(find app/build/intermediates -path '*merged_manifest*' -name AndroidManifest.xml | head -1)
+          echo "merged manifest: $m"; grep -o 'android.permission.[A-Z_]*' "$m" | sort -u
+          if grep -qE 'android.permission.(INTERNET|ACCESS_NETWORK_STATE)' "$m"; then echo "network permission found"; exit 1; fi
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
