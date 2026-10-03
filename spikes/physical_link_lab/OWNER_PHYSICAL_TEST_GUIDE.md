@@ -89,6 +89,10 @@ corrispondente, premere RECEIVER, poi avviare A.
 Se a una distanza **nessun run** termina con PASS, non provare le distanze maggiori.
 Opzionale: ripetere la distanza 100 cm con *Zoom* = 2.0 su B (alcuni telefoni passano al teleobiettivo).
 
+Limite noto (dal simulatore): l'annuncio di ogni prova è un QR v8-M, che a 1080p/1× non si legge oltre
+~60 cm. Se a 100 cm B resta su "Waiting for transmitter announce…" per tutta la sessione, è questo limite,
+non un guasto: annotarlo e ripetere la distanza con *Analysis res* = **3840x2160** oppure *Zoom* = **2.0**.
+
 ## 6. Confronto decoder (≈ 3 minuti)
 
 Su B: *QR decoder* = **compare-all**, RECEIVER. Su A: piano **DECODER COMPARE**.

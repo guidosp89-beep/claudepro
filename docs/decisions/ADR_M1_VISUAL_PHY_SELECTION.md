@@ -35,8 +35,8 @@ Evidence tables: `spikes/physical_link_lab/results/cloud/CLOUD_TABLES.md` (gener
 
 1. **Reliability layer** — under 5–50% random loss, bursts, duplicates and reordering, RaptorQ reaches
    ≈ the ideal efficiency (1 − loss): e.g. 0.80 at 20% loss vs 0.59 (LT + Gauss), 0.58 (LT peeling) and
-   0.25 (sequential carousel). RaptorQ decoded with **0 extra symbols** in every benchmark trial from
-   K = 1 to K = 5 243 (failure at exactly K: 1.7% only at K = 5), decode ≈ 50–58 MB/s on the cloud JVM
+   0.25 (sequential carousel). RaptorQ decoded from exactly K symbols in 162 of 163 benchmark decodes
+   from K = 1 to K = 5 243 (the exception, at K = 5, needed K + 1), decode ≈ 50–58 MB/s on the cloud JVM
    — three orders of magnitude above any visual rate. Sequential QR needs 2.5–9× more frames.
 2. **TX frame rate** — with a 30 fps camera and 8 ms exposure the number of *distinct clean* symbols
    captured per second peaks at **15** (TX 15/s); 20/s drops to 15.5 (average) and 9.9 (worst phase);
@@ -61,6 +61,11 @@ Evidence tables: `spikes/physical_link_lab/results/cloud/CLOUD_TABLES.md` (gener
    frame without the other: with auto-exposure (≥ 8 ms at 120 Hz) the two frames cancel in the camera
    exactly as in the eye (BER ≈ 0.5). Needs manual short exposure, a guaranteed ≥ 120 Hz panel and
    A/B synchronisation.
+6. **Virtual end-to-end loop** (real TX/RX session code through the simulator, 26 runs): on GLG-B1 48 at
+   40 / 60 cm RaptorQ delivers 5.85 / 6.04 KB/s vs LT 4.58 / 4.66 and sequential 3.40 / 2.24; the
+   gate-shaped trial (GLG-B1 48, RaptorQ, **256 KB**) passes SHA-256 at 40 and 60 cm with 6.15 / 6.19 KB/s;
+   GLG-C2 48 reaches 12.5 / 13.3 KB/s; GhostPacket v0 objects arrive byte-identical over QR and grid. At
+   100 cm no trial is detected because the announce QR (v8-M) is unreadable.
 
 ## Decision (provisional)
 
@@ -105,6 +110,8 @@ case); only phones can say whether the colour gain survives real displays and IS
 - raptorq-kotlin is a young library (single 1.0.0 release) with an API defect we work around; RaptorQ IPR
   must be reviewed before any distribution.
 - Fixed trial durations without a back-channel make sessions long (mitigation: acoustic DONE in M1.1).
+- The announce QR (v8-M) limits trial detection to ~40–60 cm at 1080p / 1×; long-range robustness points
+  need 4K analysis or 2× zoom until a grid-based announce exists (M1.1).
 
 ## Next validation (pre-registered)
 
