@@ -1,0 +1,14 @@
+{
+  "best_stable_config": null,
+  "best_stable_median_KBps": null,
+  "recommended_case": "PENDING (no physical data)",
+  "physical_runs": 0,
+  "qualifying_runs": 0,
+  "devices_in_qualifying_runs": [],
+  "best_qualifying_config": null,
+  "verdict": "PENDING",
+  "best_measured_KBps": null,
+  "median_pass_KBps": null,
+  "stretch_20KBps": false,
+  "excellent_50KBps": false
+}
