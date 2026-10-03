@@ -62,7 +62,9 @@ Fonti e dettagli nei documenti 02–07.
 Le righe "visual" sono state riesaminate nel Physical Link Lab (`spikes/physical_link_lab`). Evidenza
 **solo cloud/simulata** finché il test fisico non è eseguito: vedi `docs/experiments/M1_FINAL_REPORT.md`,
 `docs/experiments/M1_VISUAL_TECH_BAKEOFF.md` e `docs/decisions/ADR_M1_VISUAL_PHY_SELECTION.md`.
-Punti che cambiano la lettura della matrice: (1) a 1080p/1× la geometria limita il QR a ~v10 a 40 cm,
-quindi i 5–30 KB/s del "QR Dynamic" valgono solo a ≤ 20–30 cm; (2) la griglia rettangolare a tutto
-schermo è il candidato per ≥ 50 cm; (3) RaptorQ raggiunge l'efficienza ideale, LT no; (4) oltre
-`fps_camera/2` simboli al secondo non si guadagna nulla.
+Punti che cambiano la lettura della matrice (SIMULATI): (1) a 1080p/1× la geometria limita il QR a ~v10
+a 40 cm (≤ 2,2 KB/s a 15 simboli/s), quindi i 5–30 KB/s del "QR Dynamic" valgono solo a ≤ 20 cm; (2) la
+griglia rettangolare a tutto schermo (GLG, 48 colonne) è il candidato per ≥ 50 cm: 7,0 KB/s in bianco/nero
+fino a 60 cm, 11,8 / 20,2 KB/s con 4 / 8 colori nel simulatore (modello colore ottimistico: da
+verificare sui telefoni); (3) RaptorQ raggiunge l'efficienza ideale, LT no; (4) oltre `fps_camera/2`
+simboli al secondo non si guadagna nulla.
