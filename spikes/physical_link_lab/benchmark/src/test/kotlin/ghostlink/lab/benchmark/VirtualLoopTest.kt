@@ -103,3 +103,25 @@ class VirtualLoopTest {
         assertTrue(Plans.fine(top).isNotEmpty())
     }
 }
+
+class RankingTest {
+    @Test
+    fun rankingPrefersFastReliableConfigs() {
+        fun rec(key: String, v: Int, ok: Boolean, gp: Double) = RunRecord(linkedMapOf(
+            "stage" to "COARSE", "config_key" to key, "codec" to "QR", "qr_version" to v, "qr_ecc" to "L",
+            "target_visual_fps" to 15, "scheme" to "RAPTORQ", "RESULT" to if (ok) "PASS" else "FAIL_INCOMPLETE",
+            "goodput_bytes_sec" to gp,
+        ))
+        val records = listOf(
+            rec("a", 20, true, 9000.0), rec("a", 20, true, 11000.0),
+            rec("b", 25, true, 20000.0), rec("b", 25, false, 0.0), rec("b", 25, false, 0.0),
+            rec("c", 10, true, 3000.0),
+        )
+        val ranked = Ranking.rank(records)
+        assertEquals(listOf("a", "b", "c"), ranked.map { r -> records.first { Ranking.specOf(it) == r.spec }["config_key"] })
+        val top = Ranking.top(records, 2)
+        assertEquals(2, top.size)
+        val plan = ghostlink.lab.codecs.LabFrame.parse(Ranking.planFrame(1, top))
+        assertEquals(top.map { it.configKey() }, Plans.decodeTop(plan.body).map { it.configKey() })
+    }
+}

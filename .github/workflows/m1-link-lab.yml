@@ -1,0 +1,63 @@
+# GHOSTLINK M1 Physical Link Lab: JVM tests + debug APK for the two-phone physical benchmark.
+# The APK is uploaded as the "ghostlink-link-lab-apk" artifact of each run (Actions tab).
+name: M1 Link Lab
+
+on:
+  push:
+    paths:
+      - "spikes/physical_link_lab/**"
+      - ".github/workflows/m1-link-lab.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: m1-link-lab-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  jvm-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: spikes/physical_link_lab
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Unit, property and fuzz tests
+        run: ./gradlew test --no-daemon --stacktrace
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jvm-test-reports
+          path: spikes/physical_link_lab/*/build/reports/tests/test
+          if-no-files-found: ignore
+
+  android-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: spikes/physical_link_lab/android
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Build debug APK
+        run: ./gradlew :app:assembleDebug --no-daemon --stacktrace
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ghostlink-link-lab-apk
+          path: spikes/physical_link_lab/android/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error

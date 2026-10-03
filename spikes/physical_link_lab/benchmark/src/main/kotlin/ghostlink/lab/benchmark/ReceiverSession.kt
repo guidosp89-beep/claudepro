@@ -341,6 +341,7 @@ class ReceiverSession(
             f["grid_rows"] = (visual as? GridSpec)?.rows
             f["grid_bits_per_cell"] = (visual as? GridSpec)?.bitsPerCell
             f["grid_rs_parity"] = (visual as? GridSpec)?.rsParity
+            f["grid_finder_module"] = (visual as? GridSpec)?.finderModule
             f["scheme"] = c?.scheme?.name ?: dec?.scheme?.name
             f["symbol_size"] = c?.symbolSize ?: dec?.symbolSize
             f["source_symbols"] = dec?.sourceSymbols

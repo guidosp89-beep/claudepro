@@ -55,7 +55,7 @@ class RunRecord(val fields: LinkedHashMap<String, Any?>) {
             "run_id", "session_id", "trial_index", "stage", "repetition", "timestamp", "source",
             "sender_device", "receiver_device",
             "codec", "codec_version", "visual_key", "config_key", "qr_version", "qr_ecc",
-            "grid_cols", "grid_rows", "grid_bits_per_cell", "grid_rs_parity",
+            "grid_cols", "grid_rows", "grid_bits_per_cell", "grid_rs_parity", "grid_finder_module",
             "scheme", "symbol_size", "source_symbols", "payload_bytes", "encoded_bytes",
             "display_width", "display_height", "display_refresh_rate",
             "camera_width", "camera_height", "camera_fps", "analysis_fps",
