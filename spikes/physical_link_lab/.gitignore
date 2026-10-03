@@ -8,3 +8,4 @@ local.properties
 captures/
 datasets/generated/
 results/cloud/tmp/
+__pycache__/
