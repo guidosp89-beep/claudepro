@@ -49,8 +49,10 @@ data class TrialConfig(
         const val CONFIG_VERSION = 1
         const val MAX_SESSION_ID = 40
 
-        fun parse(body: ByteArray): TrialConfig {
-            val r = ByteReader(body)
+        fun parse(body: ByteArray): TrialConfig = read(ByteReader(body))
+
+        /** Reads a config from [r] leaving the reader positioned after it (announces append TX info). */
+        fun read(r: ByteReader): TrialConfig {
             if (r.u8() != CONFIG_VERSION) throw FrameFormatException("bad trial config version")
             val trialIndex = r.u16()
             val trialCount = r.u16()
