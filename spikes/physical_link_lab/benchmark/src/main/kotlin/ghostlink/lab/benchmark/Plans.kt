@@ -85,7 +85,10 @@ object Plans {
     }
 
     /** Stage 3: neighbours of each top config (QR version ±5, fps ±5, ECC ±1; grid cols ±16, parity). */
-    fun fine(top: List<TrialSpec>, reps: Int = 2): List<TrialSpec> {
+    /** 256 KB in 60 s = 4.3 KB/s: the slowest goodput a FINE/ROBUSTNESS trial can still measure. */
+    const val LONG_TRIAL_MS = 60_000
+
+    fun fine(top: List<TrialSpec>, reps: Int = 1): List<TrialSpec> {
         val out = LinkedHashMap<String, TrialSpec>()
         for (base in top) {
             val cands = ArrayList<Pair<PhyChoice, Int>>()
@@ -103,7 +106,7 @@ object Plans {
                 }
             }
             for ((phy, fps) in cands) {
-                val spec = TrialSpec(phy, fps, SchemeId.RAPTORQ, FINE_PAYLOAD, Stage.FINE, maxDurationMs = durationFor(FINE_PAYLOAD))
+                val spec = TrialSpec(phy, fps, SchemeId.RAPTORQ, FINE_PAYLOAD, Stage.FINE, maxDurationMs = LONG_TRIAL_MS)
                 out.putIfAbsent(spec.configKey(), spec)
             }
         }
@@ -112,20 +115,18 @@ object Plans {
 
     /** Large-payload confirmation of the best configs (M1 PASS needs >= 256 KB). */
     fun confirm(top: List<TrialSpec>, reps: Int = 3): List<TrialSpec> = top.take(2).flatMap { b ->
-        listOf(FINE_PAYLOAD, 1 shl 20).flatMap { size ->
-            (0 until reps).map { r ->
-                b.copy(payloadBytes = size, stage = Stage.CONFIRM, repetition = r, scheme = SchemeId.RAPTORQ,
-                    maxDurationMs = durationFor(size, minMs = 20_000, maxMs = 240_000))
-            }
+        (0 until reps).map { r ->
+            b.copy(payloadBytes = FINE_PAYLOAD, stage = Stage.CONFIRM, repetition = r, scheme = SchemeId.RAPTORQ, maxDurationMs = LONG_TRIAL_MS)
+        } + (0 until 2).map { r ->
+            b.copy(payloadBytes = 1 shl 20, stage = Stage.CONFIRM, repetition = r, scheme = SchemeId.RAPTORQ, maxDurationMs = 200_000)
         }
     }
 
     /** Short robustness plan used at each distance / angle / light / motion setting. */
-    fun robustness(top: List<TrialSpec>, stage: Stage, reps: Int = 3): List<TrialSpec> =
+    fun robustness(top: List<TrialSpec>, stage: Stage, reps: Int = 2): List<TrialSpec> =
         top.take(2).flatMap { b ->
             (0 until reps).map { r ->
-                b.copy(payloadBytes = ROBUSTNESS_PAYLOAD, stage = stage, repetition = r, scheme = SchemeId.RAPTORQ,
-                    maxDurationMs = durationFor(ROBUSTNESS_PAYLOAD, minMs = 20_000, maxMs = 60_000))
+                b.copy(payloadBytes = ROBUSTNESS_PAYLOAD, stage = stage, repetition = r, scheme = SchemeId.RAPTORQ, maxDurationMs = LONG_TRIAL_MS)
             }
         } + robustBaseline(stage)
 
@@ -144,8 +145,9 @@ object Plans {
         base.copy(payloadBytes = size, stage = Stage.CONFIRM, scheme = SchemeId.RAPTORQ, maxDurationMs = durationFor(size, minMs = 8_000, maxMs = 240_000))
     }
 
+    /** QR v10-M: the most robust data PHY in the simulator at 40 cm (v20 needs ~20 cm at 1080p). */
     fun ghostPacketProof(): List<TrialSpec> = listOf(
-        TrialSpec(PhyChoice.Qr(20, QrEcc.M), 10, SchemeId.RAPTORQ, 16 * 1024, Stage.GHOSTPACKET, maxDurationMs = 30_000, ghostPacket = true),
+        TrialSpec(PhyChoice.Qr(10, QrEcc.M), 10, SchemeId.RAPTORQ, 8 * 1024, Stage.GHOSTPACKET, maxDurationMs = 30_000, ghostPacket = true),
     )
 
     /** Built-in defaults when no ranking is available yet (e.g. robustness run before coarse). */

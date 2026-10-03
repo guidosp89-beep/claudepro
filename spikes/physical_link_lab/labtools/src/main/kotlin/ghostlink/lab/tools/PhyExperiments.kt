@@ -182,7 +182,7 @@ object VirtualLoopRun {
             TrialSpec(PhyChoice.Grid(64, 1), 15, SchemeId.RAPTORQ, payload, Stage.COARSE, maxDurationMs = 20_000),
             TrialSpec(PhyChoice.Grid(48, 2), 15, SchemeId.RAPTORQ, payload, Stage.COARSE, maxDurationMs = 20_000),
             TrialSpec(PhyChoice.Grid(96, 1), 15, SchemeId.RAPTORQ, payload, Stage.COARSE, maxDurationMs = 20_000),
-            TrialSpec(PhyChoice.Qr(20, QrEcc.M), 10, SchemeId.RAPTORQ, 16 * 1024, Stage.GHOSTPACKET, maxDurationMs = 20_000, ghostPacket = true),
+            TrialSpec(PhyChoice.Qr(10, QrEcc.M), 10, SchemeId.RAPTORQ, 8 * 1024, Stage.GHOSTPACKET, maxDurationMs = 20_000, ghostPacket = true),
         )
         val conditions = if (quick) listOf(40.0) else listOf(40.0, 60.0, 100.0)
         val pool = Executors.newFixedThreadPool(conditions.size)

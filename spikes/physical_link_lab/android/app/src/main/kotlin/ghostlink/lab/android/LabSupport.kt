@@ -94,6 +94,20 @@ object LabFiles {
         return where
     }
 
+    /**
+     * EXPORT RESULTS: one zip with every session recorded on this phone (owner sends a single file).
+     * The sessions stay on the phone; re-exporting is harmless (analysis de-duplicates by run_id).
+     */
+    fun exportAll(ctx: Context): String {
+        val root = sessionsRoot(ctx)
+        val stamp = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.ROOT).format(java.util.Date())
+        val bundle = File(ctx.cacheDir, "all_${DeviceProfile.deviceId()}_$stamp").also { it.deleteRecursively(); it.mkdirs() }
+        root.listFiles()?.filter { it.isDirectory }?.forEach { it.copyRecursively(File(bundle, it.name), overwrite = true) }
+        val where = export(ctx, bundle)
+        bundle.deleteRecursively()
+        return where
+    }
+
     /** Most recent session directory, if any. */
     fun latestSession(ctx: Context): File? = sessionsRoot(ctx).listFiles()?.filter { it.isDirectory }?.maxByOrNull { it.lastModified() }
 }

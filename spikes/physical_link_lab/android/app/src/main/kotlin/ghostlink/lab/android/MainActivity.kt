@@ -36,7 +36,7 @@ class MainActivity : AppCompatActivity() {
 
         col.addView(button("TRANSMITTER") { startActivity(Intent(this, TransmitterActivity::class.java)) })
         col.addView(button("RECEIVER") { startActivity(Intent(this, ReceiverActivity::class.java)) })
-        col.addView(button("EXPORT RESULTS (latest session)") { exportLatest() })
+        col.addView(button("EXPORT RESULTS (all sessions, one zip)") { exportAll() })
         col.addView(button("SCAN PLAN FROM RECEIVER (stage 2 → 3)") {
             startActivity(Intent(this, ReceiverActivity::class.java).putExtra(ReceiverActivity.EXTRA_PLAN_SCAN, true))
         })
@@ -84,10 +84,10 @@ class MainActivity : AppCompatActivity() {
             "Device: ${DeviceProfile.model()}"
     }
 
-    private fun exportLatest() {
-        val dir = LabFiles.latestSession(this) ?: return toast("No session yet")
+    private fun exportAll() {
+        if (LabFiles.latestSession(this) == null) return toast("No session yet")
         try {
-            toast("Exported to ${LabFiles.export(this, dir)}")
+            toast("Exported to ${LabFiles.exportAll(this)}")
         } catch (e: Exception) {
             toast("Export failed: ${e.message}")
         }

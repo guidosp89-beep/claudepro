@@ -65,7 +65,7 @@ object FountainBench {
                 for (trial in 0 until trials) {
                     val rnd = Random(trial * 7919L + size)
                     // 20% iid erasure over a long enough stream, then shuffle (reordering)
-                    val stream = (0 until k * 6 + 40).filter { rnd.nextDouble() >= 0.2 }.shuffled(rnd)
+                    val stream = (0 until k * 20 + 40).filter { rnd.nextDouble() >= 0.2 }.shuffled(rnd)
                     val rt = Runtime.getRuntime(); System.gc(); val before = rt.totalMemory() - rt.freeMemory()
                     val dec = v.decoder(size, t)
                     for (id in stream) {

@@ -85,6 +85,7 @@ class ReceiverActivity : AppCompatActivity(), SensorEventListener {
     @Volatile private var lastSkewNs: Long? = null
     @Volatile private var lastExposureNs: Long? = null
     @Volatile private var lastIso: Int? = null
+    @Volatile private var fpsRange: Range<Int>? = null
     private val skewSamples = ArrayList<Long>()
     private var lastUiNs = 0L
     @Volatile private var ended = false
@@ -170,12 +171,6 @@ class ReceiverActivity : AppCompatActivity(), SensorEventListener {
             .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
             .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_YUV_420_888)
         val ext = Camera2Interop.Extender(builder)
-        ext.setCaptureRequestOption(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, Range(30, 30))
-        if (prefs.exposure == "SHORT") {
-            ext.setCaptureRequestOption(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_OFF)
-            ext.setCaptureRequestOption(CaptureRequest.SENSOR_EXPOSURE_TIME, SHORT_EXPOSURE_NS)
-            ext.setCaptureRequestOption(CaptureRequest.SENSOR_SENSITIVITY, SHORT_EXPOSURE_ISO)
-        }
         ext.setSessionCaptureCallback(object : CameraCaptureSession.CaptureCallback() {
             override fun onCaptureCompleted(s: CameraCaptureSession, r: CaptureRequest, result: TotalCaptureResult) {
                 lastSkewNs = result.get(CaptureResult.SENSOR_ROLLING_SHUTTER_SKEW)
@@ -195,14 +190,26 @@ class ReceiverActivity : AppCompatActivity(), SensorEventListener {
             CameraCharacteristics.SENSOR_INFO_TIMESTAMP_SOURCE_REALTIME
         val manual = info.getCameraCharacteristic(CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES)
             ?.contains(CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_MANUAL_SENSOR) == true
-        if (prefs.exposure == "SHORT" && !manual) toast("MANUAL_SENSOR not supported: SHORT exposure ignored by the HAL")
-        if (prefs.exposure == "LOCK") {
-            previewView.postDelayed({
-                Camera2CameraControl.from(cam.cameraControl).setCaptureRequestOptions(
-                    CaptureRequestOptions.Builder().setCaptureRequestOption(CaptureRequest.CONTROL_AE_LOCK, true).build(),
-                )
-            }, 2500)
+        // Frame-rate range: only ranges the device advertises; prefer a fixed 30 fps (timing model §E).
+        val ranges = info.getCameraCharacteristic(CameraCharacteristics.CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES)?.toList() ?: emptyList()
+        fpsRange = ranges.firstOrNull { it.lower == 30 && it.upper == 30 }
+            ?: ranges.filter { it.upper <= 30 }.maxWithOrNull(compareBy({ it.upper }, { it.lower }))
+            ?: ranges.maxWithOrNull(compareBy({ it.upper }, { it.lower }))
+        fun options(aeLock: Boolean): CaptureRequestOptions {
+            val b = CaptureRequestOptions.Builder()
+            fpsRange?.let { b.setCaptureRequestOption(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, it) }
+            if (prefs.exposure == "SHORT" && manual) {
+                b.setCaptureRequestOption(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_OFF)
+                b.setCaptureRequestOption(CaptureRequest.SENSOR_EXPOSURE_TIME, SHORT_EXPOSURE_NS)
+                b.setCaptureRequestOption(CaptureRequest.SENSOR_SENSITIVITY, SHORT_EXPOSURE_ISO)
+            }
+            if (aeLock) b.setCaptureRequestOption(CaptureRequest.CONTROL_AE_LOCK, true)
+            return b.build()
         }
+        val c2 = Camera2CameraControl.from(cam.cameraControl)
+        c2.setCaptureRequestOptions(options(aeLock = false))
+        if (prefs.exposure == "SHORT" && !manual) toast("MANUAL_SENSOR not supported: SHORT exposure not applied")
+        if (prefs.exposure == "LOCK") previewView.postDelayed({ c2.setCaptureRequestOptions(options(aeLock = true)) }, 2500)
         status.text = if (planScan) status.text else "Waiting for transmitter announce…"
     }
 
@@ -308,6 +315,7 @@ class ReceiverActivity : AppCompatActivity(), SensorEventListener {
             "ended_at_ms" to System.currentTimeMillis(),
             "rolling_shutter_skew_ns_samples" to skewSamples.take(500),
             "realtime_timestamps" to realtimeTimestamps,
+            "ae_target_fps_range" to fpsRange?.toString(),
             "ranking" to Ranking.rank(s.records).map { mapOf("config" to it.spec.configKey(), "score" to it.score, "runs" to it.runs, "passes" to it.passes, "median_goodput" to it.medianGoodput) },
         ))
         LabFiles.writeJson(dir, "device_profile.json", DeviceProfile.collect(this))

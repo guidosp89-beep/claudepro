@@ -117,6 +117,8 @@ def device_matrix(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def m1_gate(df: pd.DataFrame) -> dict:
+    if df.empty or "pass" not in df.columns:
+        return {"verdict": "PENDING", "physical_runs": 0, "recommended_case": "PENDING (no physical data)"}
     phys = df[df["source"].eq("PHYSICAL")]
     qual = phys[phys["pass"] & (phys["goodput_bytes_sec"] >= M1_MIN_GOODPUT) &
                 (phys["distance_cm"] >= M1_MIN_DISTANCE) & (phys["payload_bytes"] >= M1_MIN_PAYLOAD)]
@@ -129,7 +131,31 @@ def m1_gate(df: pd.DataFrame) -> dict:
         verdict = "PASS" if (len(qual) and len(devices) >= M1_MIN_DEVICES and len(phys) >= M1_MIN_RUNS) else (
             "PARTIAL" if len(qual) else "FAIL (BELOW TARGET)")
     stable = phys[phys["pass"]]["goodput_KBps"]
+    # "Stable" = a config whose runs at >= 50 cm with >= 256 KB pass >= 80% of the time (>= 3 runs);
+    # its median goodput drives the pre-registered decision rule of brief §58.
+    elig = phys[(phys["distance_cm"] >= M1_MIN_DISTANCE) & (phys["payload_bytes"] >= M1_MIN_PAYLOAD)]
+    stable_cfgs = []
+    for cfg, g in elig.groupby("config_key"):
+        if len(g) >= 3 and g["pass"].mean() >= 0.8:
+            stable_cfgs.append((float(g[g["pass"]]["goodput_KBps"].median()), cfg))
+    stable_cfgs.sort(reverse=True)
+    best_stable = stable_cfgs[0][0] if stable_cfgs else 0.0
+    directions_ok = set(qual["direction"]) if len(qual) else set()
+    directions_all = set(elig["direction"]) if len(elig) else set()
+    if not len(phys):
+        case = "PENDING (no physical data)"
+    elif directions_ok and len(directions_all) > 1 and len(directions_ok) == 1:
+        case = "D — device-specific: M1C compatibility investigation"
+    elif best_stable >= 20:
+        case = "A — visual excellent: M2 GhostPacket + identity + encrypted visual session"
+    elif best_stable >= 5:
+        case = "B — visual viable: M1.1 visual optimization (or M2 if further gains look low-ROI)"
+    else:
+        case = "C — visual weak: M1B audio + alternative visual PHY bake-off"
     return {
+        "best_stable_config": stable_cfgs[0][1] if stable_cfgs else None,
+        "best_stable_median_KBps": best_stable if stable_cfgs else None,
+        "recommended_case": case,
         "physical_runs": int(len(phys)), "qualifying_runs": int(len(qual)), "devices_in_qualifying_runs": sorted(devices),
         "best_qualifying_config": best_cfg, "verdict": verdict,
         "best_measured_KBps": float(stable.max()) if len(stable) else None,
